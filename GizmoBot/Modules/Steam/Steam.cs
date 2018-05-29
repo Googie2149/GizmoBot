@@ -27,12 +27,6 @@ namespace GizmoBot.Modules.Steam
         public Steam(Config _config)
         {
             config = _config;
-            Context.Client.Connected += Client_Connected;
-        }
-
-        private async Task Client_Connected()
-        {
-            Console.WriteLine("It worked!");
         }
     }
 }
