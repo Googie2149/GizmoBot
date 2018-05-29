@@ -42,6 +42,17 @@ namespace GizmoBot.Modules.Steam
 
             manager.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);
             manager.Subscribe<SteamUser.LoggedOffCallback>(OnLoggedOff);
+
+            isRunning = true;
+
+            Console.WriteLine("Connecting to steam...");
+
+            steamClient.Connect();
+
+            while(isRunning)
+            {
+                manager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
+            }
         }
 
         private void OnConnected(SteamClient.ConnectedCallback callback)
