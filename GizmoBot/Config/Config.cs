@@ -17,9 +17,7 @@ namespace GizmoBot
         [JsonProperty("prefixes")]
         public IEnumerable<string> PrefixList { get; set; } = new[]
         {
-            ";",
-            "!",
-            "pls "
+            "*"
         };
         [JsonProperty("mention_trigger")]
         public bool TriggerOnMention { get; set; } = true;
@@ -29,10 +27,7 @@ namespace GizmoBot
 
         [JsonProperty("owner_id")]
         public ulong OwnerId { get; set; } = 0;
-
-        [JsonProperty("uptime_db")]
-        public string UptimeDB { get; set; }
-
+        
         public static Config Load()
         {
             if (File.Exists("config.json"))
