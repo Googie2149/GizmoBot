@@ -71,7 +71,7 @@ namespace GizmoBot.Modules.Standard
             await ReplyAsync(output.ToString());
         }
 
-        [Command("Ping")]
+        [Command("ping")]
         [Summary("Pong!")]
         [Priority(1000)]
         public async Task Blah()

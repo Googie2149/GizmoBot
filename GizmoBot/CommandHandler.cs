@@ -8,6 +8,7 @@ using Discord.Commands;
 using Discord.Commands.Builders;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using GizmoBot.Modules.Steam;
 
 namespace GizmoBot
 {
@@ -18,6 +19,7 @@ namespace GizmoBot
         //private IDependencyMap map;
         private IServiceProvider services;
         private Config config;
+        private SteamService steam;
 
         public async Task Install(IServiceProvider _services)
         {
@@ -27,6 +29,7 @@ namespace GizmoBot
             //_map.Add(commands);
             services = _services;
             config = _services.GetService<Config>();
+            steam = _services.GetService<SteamService>();
             
             await commands.AddModulesAsync(Assembly.GetEntryAssembly(), services);
 
