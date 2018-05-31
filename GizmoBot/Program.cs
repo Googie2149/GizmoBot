@@ -83,6 +83,7 @@ namespace GizmoBot
             {
                 await Task.Delay(3000); // wait 3 seconds just to ensure we can actually send it. this might not do anything.
                 await guild.GetTextChannel(updateChannel).SendMessageAsync("Successfully reconnected.");
+                updateChannel = 0;
             }
         }
 
