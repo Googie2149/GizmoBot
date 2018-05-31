@@ -12,8 +12,6 @@ namespace GizmoBot
     {
         [JsonProperty("token")]
         public string Token { get; set; }
-        [JsonProperty("steam_token")]
-        public string SteamToken { get; set; }
         [JsonProperty("prefixes")]
         public IEnumerable<string> PrefixList { get; set; } = new[]
         {

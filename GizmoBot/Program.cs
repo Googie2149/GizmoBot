@@ -9,7 +9,6 @@ using Discord.Rest;
 using Discord.Commands;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
-using GizmoBot.Modules.Steam;
 
 namespace GizmoBot
 {
@@ -23,7 +22,6 @@ namespace GizmoBot
         private Config config;
         private CommandHandler handler;
         private ServiceProvider map;
-        private SteamService steam;
         private ulong updateChannel = 0;
 
         private async Task RunAsync()
@@ -67,9 +65,6 @@ namespace GizmoBot
             }
 
             socketClient.GuildAvailable += Client_GuildAvailable;
-
-            steam = new SteamService();
-            await steam.Install(map);
 
             handler = new CommandHandler();
             await handler.Install(map);
