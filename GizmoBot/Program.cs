@@ -49,9 +49,10 @@ namespace GizmoBot
                 Console.WriteLine($"Found an update file! It contained [{temp}] and we got [{updateChannel}] from it!");
             }
 
-            config = Config.Load();
+            config = await Config.Load();
+            steam = new SteamService();
 
-            map = new ServiceCollection().AddSingleton(socketClient).AddSingleton(config).BuildServiceProvider();
+            map = new ServiceCollection().AddSingleton(socketClient).AddSingleton(config).AddSingleton(steam).BuildServiceProvider();
             
 
             await socketClient.LoginAsync(TokenType.Bot, config.Token);
@@ -67,12 +68,13 @@ namespace GizmoBot
             }
 
             socketClient.GuildAvailable += Client_GuildAvailable;
-
-            steam = new SteamService();
+            
             await steam.Install(map);
 
             handler = new CommandHandler();
             await handler.Install(map);
+
+            Console.WriteLine("test");
 
             await Task.Delay(-1);
         }
@@ -103,6 +105,7 @@ namespace GizmoBot
                     else if (i == 1)
                     {
                         File.Create("./deadlock");
+                        await config.Save();
                         Environment.Exit((int)ExitCodes.ExitCode.DeadlockEscape);
                     }
                 }

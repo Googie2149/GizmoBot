@@ -19,11 +19,13 @@ namespace GizmoBot.Modules.Standard
     {
         private CommandService commands;
         private IServiceProvider services;
+        private Config config;
 
-        public Standard(CommandService _commands, IServiceProvider _services)
+        public Standard(CommandService _commands, IServiceProvider _services, Config _config)
         {
             commands = _commands;
             services = _services;
+            config = _config;
         }
 
         [Command("help")]
@@ -94,6 +96,7 @@ namespace GizmoBot.Modules.Standard
         public async Task ShutDown()
         {
             await RespondAsync("Disconnecting...");
+            await config.Save();
             await Context.Client.LogoutAsync();
             await Task.Delay(1000);
             Environment.Exit((int)ExitCodes.ExitCode.Success);
@@ -105,6 +108,7 @@ namespace GizmoBot.Modules.Standard
         public async Task Restart()
         {
             await RespondAsync("Restarting...");
+            await config.Save();
             await File.WriteAllTextAsync("./update", Context.Channel.Id.ToString());
 
             await Context.Client.LogoutAsync();
@@ -120,6 +124,7 @@ namespace GizmoBot.Modules.Standard
             await File.WriteAllTextAsync("./update", Context.Channel.Id.ToString());
 
             await RespondAsync("Pulling latest code and rebuilding from source, I'll be back in a bit.");
+            await config.Save();
             await Context.Client.LogoutAsync();
             await Task.Delay(1000);
             Environment.Exit((int)ExitCodes.ExitCode.RestartAndUpdate);
@@ -133,6 +138,7 @@ namespace GizmoBot.Modules.Standard
             File.Create("./deadlock");
 
             await RespondAsync("Restarting...");
+            await config.Save();
             await Context.Client.LogoutAsync();
             await Task.Delay(1000);
             Environment.Exit((int)ExitCodes.ExitCode.DeadlockEscape);
