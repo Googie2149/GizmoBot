@@ -392,7 +392,7 @@ namespace GizmoBot.Modules.Steam
 
         public async Task<SteamApps.PICSProductInfoCallback.PICSProductInfo> GetInfo(uint appId)
         {
-            var result = await steamApps.PICSGetProductInfo(appId, package: null);
+            var result = await steamApps.PICSGetProductInfo(appId, package: null, onlyPublic: false);
 
             return result.Results.First().Apps.Values.FirstOrDefault();
         }
