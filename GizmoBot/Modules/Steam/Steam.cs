@@ -109,16 +109,16 @@ namespace GizmoBot.Modules.Steam
             foreach (var a in result.KeyValues.Children)
             {
                 output.AppendLine($"{a.Name} | {a.Value}");
-                foreach (var b in result.KeyValues.Children)
+                foreach (var b in a.Children)
                 {
                     output.AppendLine($"{b.Name} | {b.Value}");
-                    foreach (var c in result.KeyValues.Children)
+                    foreach (var c in b.Children)
                     {
                         output.AppendLine($"{c.Name} | {c.Value}");
-                        foreach (var d in result.KeyValues.Children)
+                        foreach (var d in c.Children)
                         {
                             output.AppendLine($"{d.Name} | {d.Value}");
-                            foreach (var e in result.KeyValues.Children)
+                            foreach (var e in d.Children)
                             {
                                 output.AppendLine($"{e.Name} | {e.Value}");
                             }
