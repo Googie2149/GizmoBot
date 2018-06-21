@@ -103,7 +103,7 @@ namespace GizmoBot.Modules.Steam
             var result = await steam.GetInfo(appId);
 
             StringBuilder output = new StringBuilder();
-
+            output.Append("```");
             output.AppendLine(result.ID.ToString());
 
             foreach (var a in result.KeyValues.Children)
@@ -126,6 +126,7 @@ namespace GizmoBot.Modules.Steam
                     }
                 }
             }
+            output.Append("```");
 
             await RespondAsync(output.ToString());
         }
