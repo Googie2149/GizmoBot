@@ -111,7 +111,7 @@ namespace GizmoBot
                     var results = await steamApps.PICSGetProductInfo(requests, packages: new uint[0]);
                     
                     var apps = results.Results.FirstOrDefault()?.Apps;
-
+                    
                     foreach (var a in apps)
                     {
                         string name = a.Value?.KeyValues?.Children?.FirstOrDefault(x => x.Name == "common")?.Children?.FirstOrDefault(x => x.Name == "name")?.Value;

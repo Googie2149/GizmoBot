@@ -390,6 +390,13 @@ namespace GizmoBot.Modules.Steam
             }
         }
 
+        public async Task<SteamApps.PICSProductInfoCallback.PICSProductInfo> GetInfo(uint appId)
+        {
+            var result = await steamApps.PICSGetProductInfo(appId, package: null);
+
+            return result.Results.First().Apps.Values.FirstOrDefault();
+        }
+
         public async Task<IEnumerable<SteamApp>> AddSteamGames(IEnumerable<uint> appIds, ulong channel)
         {
             List<SteamApp> output = new List<SteamApp>();

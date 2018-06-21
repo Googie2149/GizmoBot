@@ -96,5 +96,38 @@ namespace GizmoBot.Modules.Steam
 
             await msg.ModifyAsync(x => x.Content = $"This channel is watching the following:\n{(list.Select(y => $"`[{y.AppId.ToString(buffer)}]` {y.GameName}").Join("\n"))}");
         }
+
+        [Command("info", RunMode = RunMode.Async)]
+        public async Task GetInfo(uint appId)
+        {
+            var result = await steam.GetInfo(appId);
+
+            StringBuilder output = new StringBuilder();
+
+            output.AppendLine(result.ID.ToString());
+
+            foreach (var a in result.KeyValues.Children)
+            {
+                output.AppendLine($"{a.Name} | {a.Value}");
+                foreach (var b in result.KeyValues.Children)
+                {
+                    output.AppendLine($"{b.Name} | {b.Value}");
+                    foreach (var c in result.KeyValues.Children)
+                    {
+                        output.AppendLine($"{c.Name} | {c.Value}");
+                        foreach (var d in result.KeyValues.Children)
+                        {
+                            output.AppendLine($"{d.Name} | {d.Value}");
+                            foreach (var e in result.KeyValues.Children)
+                            {
+                                output.AppendLine($"{e.Name} | {e.Value}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            await RespondAsync(output.ToString());
+        }
     }
 }
