@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using Newtonsoft.Json;
+
 using SteamKit2;
 
 namespace GizmoBot
@@ -42,7 +43,10 @@ namespace GizmoBot
         public Dictionary<uint, List<ulong>> SteamSettings { get; set; } = new Dictionary<uint, List<ulong>>();
 
         [JsonProperty("game_names")]
-        private Dictionary<uint, string>  GameNames { get; set; } = new Dictionary<uint, string>();
+        private Dictionary<uint, string> GameNames { get; set; } = new Dictionary<uint, string>();
+
+        [JsonProperty("game_versions")]
+        public Dictionary<uint, uint> GameVersions { get; set; } = new Dictionary<uint, uint>();
 
         public bool AddGame(uint app, ulong channel)
         {
@@ -84,15 +88,86 @@ namespace GizmoBot
             }
             else
             {
-                await BatchUpdateGames(steamApps);
+                await BatchUpdateGameNames(steamApps);
 
                 GameNames.TryGetValue(app, out string output2);
-                
+
                 return output2;
             }
         }
 
-        public async Task BatchUpdateGames(SteamApps steamApps)
+        public async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo>> GetInfo(IEnumerable<uint> appIds, SteamApps steamApps)
+        {
+            int failureCount = 0;
+
+            List<uint> requests = new List<uint>(appIds);
+
+            while (failureCount < 3)
+            {
+                if (failureCount > 0)
+                    await Task.Delay(1000);
+
+                try
+                {
+                    var results = await steamApps.PICSGetProductInfo(appIds, packages: new uint[0]);
+
+                    //if (results.Failed)
+
+
+
+                    var apps = results.Results.FirstOrDefault()?.Apps;
+
+
+
+                    foreach (var a in apps)
+                    {
+                        string name = a.Value?.KeyValues?
+                            .Children?.FirstOrDefault(x => x.Name == "common")?
+                            .Children?.FirstOrDefault(x => x.Name == "name")?.Value;
+
+                        if (name != null)
+                            GameNames.Add(a.Value.ID, name);
+                        else
+                            continue;
+
+                        if (!GameVersions.ContainsKey(a.Value.ID))
+                        {
+                            string temp = a.Value?.KeyValues?
+                                .Children?.FirstOrDefault(x => x.Name == "depots")?
+                                .Children?.FirstOrDefault(x => x.Name == "branches")?
+                                .Children?.FirstOrDefault(x => x.Name == "public")?
+                                .Children?.FirstOrDefault(x => x.Name == "buildid")?.Value;
+
+                            if (uint.TryParse(temp, out uint version))
+                            {
+                                GameVersions[a.Value.ID] = version;
+                            }
+                        }
+                    }
+
+                    if (SteamSettings.Keys.Where(x => GameNames.ContainsKey(x)).Count() == 0)
+                    {
+                        // We got everything we wanted
+                        break;
+                    }
+                    else
+                    {
+                        // We missed some stuff, try again a couple of times until we get it
+                        failureCount++;
+                    }
+                }
+                catch
+                {
+                    // We timed out before getting anything.
+                    failureCount++;
+                    continue;
+                }
+            }
+
+            return null;
+        }
+
+        public async Task BatchUpdateGameNames(SteamApps steamApps)
         {
             int failureCount = 0;
 
@@ -114,10 +189,28 @@ namespace GizmoBot
                     
                     foreach (var a in apps)
                     {
-                        string name = a.Value?.KeyValues?.Children?.FirstOrDefault(x => x.Name == "common")?.Children?.FirstOrDefault(x => x.Name == "name")?.Value;
+                        string name = a.Value?.KeyValues?
+                            .Children?.FirstOrDefault(x => x.Name == "common")?
+                            .Children?.FirstOrDefault(x => x.Name == "name")?.Value;
 
                         if (name != null)
                             GameNames.Add(a.Value.ID, name);
+                        else
+                            continue;
+
+                        if (!GameVersions.ContainsKey(a.Value.ID))
+                        {
+                            string temp = a.Value?.KeyValues?
+                                .Children?.FirstOrDefault(x => x.Name == "depots")?
+                                .Children?.FirstOrDefault(x => x.Name == "branches")?
+                                .Children?.FirstOrDefault(x => x.Name == "public")?
+                                .Children?.FirstOrDefault(x => x.Name == "buildid")?.Value;
+
+                            if (uint.TryParse(temp, out uint version))
+                            {
+                                GameVersions[a.Value.ID] = version;
+                            }
+                        }
                     }
 
                     if (SteamSettings.Keys.Where(x => GameNames.ContainsKey(x)).Count() == 0)

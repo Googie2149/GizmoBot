@@ -215,91 +215,6 @@ namespace GizmoBot.Modules.Steam
                     Console.WriteLine($"Error in steam changes\nMessage: {ex.Message}\nSource: {ex.Source}\n{ex.InnerException}");
                 }
             }
-
-
-
-            //moreChanges.Results.First().Apps|.First()|.Value.KeyValues.Children.Where(x => x.Name == "common").First().Children.Where(x => x.Name == "name").First().Value
-
-
-            //var productJob = steamApps.PICSGetProductInfo(211820, package: null);
-            ////CDNClient test = new CDNClient(steamClient);
-            ////test.DownloadManifestAsync(441, )
-
-
-            //AsyncJobMultiple<SteamApps.PICSProductInfoCallback>.ResultSet resultSet = await productJob;
-
-            //if (resultSet.Complete)
-            //{
-            //    SteamApps.PICSProductInfoCallback productInfo = resultSet.Results.First();
-
-            //    // do something with the info here
-
-            //    //foreach (var a in productInfo.Apps)
-            //    //{
-            //    //    Console.WriteLine($"*Key: {a.Key} | ChangeNumber: {a.Value.ChangeNumber}\nName: {a.Value.KeyValues.Name} | Value: {a.Value.KeyValues.Value}");
-            //    //    foreach (var b in a.Value.KeyValues.Children)
-            //    //    {
-            //    //        Console.WriteLine($"**Name: {b.Name} | Value: {b.Value}");
-            //    //        foreach (var c in b.Children)
-            //    //        {
-            //    //            Console.WriteLine($"***Name: {c.Name} | Value: {c.Value}");
-            //    //            foreach (var d in c.Children)
-            //    //            {
-            //    //                Console.WriteLine($"****Name: {d.Name} | Value: {d.Value}");
-            //    //                foreach (var e in d.Children)
-            //    //                {
-            //    //                    Console.WriteLine($"*****Name: {e.Name} | Value: {e.Value}");
-            //    //                    foreach (var f in e.Children)
-            //    //                    {
-            //    //                        Console.WriteLine($"******Name: {f.Name} | Value: {f.Value}");
-            //    //                        foreach (var g in f.Children)
-            //    //                        {
-            //    //                            Console.WriteLine($"*******Name: {g.Name} | Value: {g.Value}");
-            //    //                        }
-            //    //                    }
-            //    //                }
-            //    //            }
-            //    //        }
-            //    //    }
-            //    //}
-
-
-            //    Console.WriteLine();
-            //}
-            //else if (resultSet.Failed)
-            //{
-            //    SteamApps.PICSProductInfoCallback productInfo = resultSet.Results.FirstOrDefault(prodCallback => prodCallback.Apps.ContainsKey(440));
-
-            //    if (productInfo != null)
-            //    {
-            //        // we were lucky and Steam gave us the info we requested before failing
-            //        Console.WriteLine();
-            //    }
-            //    else
-            //    {
-            //        // bad luck
-            //        Console.WriteLine();
-            //    }
-            //}
-            //else
-            //{
-            //    SteamApps.PICSProductInfoCallback productInfo = resultSet.Results.FirstOrDefault(prodCallback => prodCallback.Apps.ContainsKey(440));
-
-            //    if (productInfo != null)
-            //    {
-            //        // we were lucky and Steam gave us the info we requested before timing out
-            //        Console.WriteLine();
-            //    }
-            //    else
-            //    {
-            //        // bad luck
-            //        Console.WriteLine();
-            //    }
-            //}
-
-            //Console.WriteLine();
-
-            //steamUser.LogOff();
         }
 
         private void OnLoggedOff(SteamUser.LoggedOffCallback callback)
@@ -393,7 +308,7 @@ namespace GizmoBot.Modules.Steam
         public async Task<SteamApps.PICSProductInfoCallback.PICSProductInfo> GetInfo(uint appId)
         {
             var result = await steamApps.PICSGetProductInfo(appId, package: null, onlyPublic: false);
-
+            
             return result.Results.First().Apps.Values.FirstOrDefault();
         }
 
@@ -466,5 +381,6 @@ namespace GizmoBot.Modules.Steam
     {
         public uint AppId;
         public string GameName;
+        public uint GameVersion;
     }
 }
