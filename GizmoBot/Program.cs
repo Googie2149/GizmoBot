@@ -68,6 +68,7 @@ namespace GizmoBot
             }
 
             socketClient.GuildAvailable += Client_GuildAvailable;
+            socketClient.Disconnected += SocketClient_Disconnected;
             
             await steam.Install(map);
 

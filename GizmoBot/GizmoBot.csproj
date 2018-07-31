@@ -6,6 +6,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Modules\Steam\SteamCommands.cs" />
+    <Compile Remove="Modules\Steam\SteamOld.cs" />
+    <Compile Remove="Modules\Steam\SteamService.cs" />
+    <Compile Remove="Modules\Steam\SteamServiceOld.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Modules\Steam\SteamCommands.cs" />
+    <None Include="Modules\Steam\SteamOld.cs" />
+    <None Include="Modules\Steam\SteamService.cs" />
+    <None Include="Modules\Steam\SteamServiceOld.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Discord.Net.Commands" Version="2.0.0-beta2-00970" />
     <PackageReference Include="Discord.Net.Core" Version="2.0.0-beta2-00970" />
     <PackageReference Include="Discord.Net.Rest" Version="2.0.0-beta2-00970" />

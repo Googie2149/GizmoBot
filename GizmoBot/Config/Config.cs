@@ -5,14 +5,17 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using Newtonsoft.Json;
-
 using SteamKit2;
+using RestSharp;
 
 namespace GizmoBot
 {
     [JsonObject(MemberSerialization.OptIn)]
     public class Config
     {
+        [JsonIgnore]
+        private SteamGameList steamGameList;
+
         [JsonProperty("token")]
         public string Token { get; set; }
         [JsonProperty("steam_token")]
@@ -41,10 +44,7 @@ namespace GizmoBot
 
         [JsonProperty("steam_settings")]
         public Dictionary<uint, List<ulong>> SteamSettings { get; set; } = new Dictionary<uint, List<ulong>>();
-
-        [JsonProperty("game_names")]
-        private Dictionary<uint, string> GameNames { get; set; } = new Dictionary<uint, string>();
-
+        
         [JsonProperty("game_versions")]
         public Dictionary<uint, uint> GameVersions { get; set; } = new Dictionary<uint, uint>();
 
@@ -77,23 +77,12 @@ namespace GizmoBot
             return true;
         }
 
-        public async Task<string> GetGameName(uint app, SteamApps steamApps)
+        public async Task<string> GetGameName(uint app)
         {
-            if (!SteamSettings.ContainsKey(app))
-                SteamSettings[app] = new List<ulong>();
+            if (steamGameList.LatestAppId < app)
+                await LoadGameNames(forceReload: true);
 
-            if (GameNames.TryGetValue(app, out string output))
-            {
-                return output;
-            }
-            else
-            {
-                await BatchUpdateGameNames(steamApps);
-
-                GameNames.TryGetValue(app, out string output2);
-
-                return output2;
-            }
+            return steamGameList.applist.apps.FirstOrDefault(x => x.AppId == app)?.Name;
         }
 
         public async Task<Dictionary<uint, SteamApps.PICSProductInfoCallback.PICSProductInfo>> GetInfo(IEnumerable<uint> appIds, SteamApps steamApps)
@@ -109,27 +98,18 @@ namespace GizmoBot
 
                 try
                 {
-                    var results = await steamApps.PICSGetProductInfo(appIds, packages: new uint[0]);
-
-                    //if (results.Failed)
-
-
-
+                    var results = await steamApps.PICSGetProductInfo(requests, packages: new uint[0]);
+                    
                     var apps = results.Results.FirstOrDefault()?.Apps;
-
-
-
+                    
                     foreach (var a in apps)
                     {
-                        string name = a.Value?.KeyValues?
-                            .Children?.FirstOrDefault(x => x.Name == "common")?
-                            .Children?.FirstOrDefault(x => x.Name == "name")?.Value;
+                        requests.Remove(a.Key);
 
-                        if (name != null)
-                            GameNames.Add(a.Value.ID, name);
-                        else
-                            continue;
-
+                        //string name = a.Value?.KeyValues?
+                        //    .Children?.FirstOrDefault(x => x.Name == "common")?
+                        //    .Children?.FirstOrDefault(x => x.Name == "name")?.Value;
+                        
                         if (!GameVersions.ContainsKey(a.Value.ID))
                         {
                             string temp = a.Value?.KeyValues?
@@ -145,7 +125,7 @@ namespace GizmoBot
                         }
                     }
 
-                    if (SteamSettings.Keys.Where(x => GameNames.ContainsKey(x)).Count() == 0)
+                    if (requests.Count() == 0)
                     {
                         // We got everything we wanted
                         break;
@@ -166,79 +146,15 @@ namespace GizmoBot
 
             return null;
         }
-
-        public async Task BatchUpdateGameNames(SteamApps steamApps)
-        {
-            int failureCount = 0;
-
-            while (failureCount < 3)
-            {
-                if (failureCount > 0)
-                    await Task.Delay(1000);
-
-                var requests = SteamSettings.Keys.Where(x => !GameNames.ContainsKey(x)).ToList();
-
-                if (requests.Count() == 0)
-                    return;
-
-                try
-                {
-                    var results = await steamApps.PICSGetProductInfo(requests, packages: new uint[0]);
-                    
-                    var apps = results.Results.FirstOrDefault()?.Apps;
-                    
-                    foreach (var a in apps)
-                    {
-                        string name = a.Value?.KeyValues?
-                            .Children?.FirstOrDefault(x => x.Name == "common")?
-                            .Children?.FirstOrDefault(x => x.Name == "name")?.Value;
-
-                        if (name != null)
-                            GameNames.Add(a.Value.ID, name);
-                        else
-                            continue;
-
-                        if (!GameVersions.ContainsKey(a.Value.ID))
-                        {
-                            string temp = a.Value?.KeyValues?
-                                .Children?.FirstOrDefault(x => x.Name == "depots")?
-                                .Children?.FirstOrDefault(x => x.Name == "branches")?
-                                .Children?.FirstOrDefault(x => x.Name == "public")?
-                                .Children?.FirstOrDefault(x => x.Name == "buildid")?.Value;
-
-                            if (uint.TryParse(temp, out uint version))
-                            {
-                                GameVersions[a.Value.ID] = version;
-                            }
-                        }
-                    }
-
-                    if (SteamSettings.Keys.Where(x => GameNames.ContainsKey(x)).Count() == 0)
-                    {
-                        // We got everything we wanted
-                        break;
-                    }
-                    else
-                    {
-                        // We missed some stuff, try again a couple of times until we get it
-                        failureCount++;
-                    }
-                }
-                catch
-                {
-                    // We timed out before getting anything.
-                    failureCount++;
-                    continue;
-                }
-            }
-        }
         
         public async static Task<Config> Load()
         {
             if (File.Exists("config.json"))
             {
-                var json = File.ReadAllText("config.json");
-                return JsonConvert.DeserializeObject<Config>(json);
+                var json = await File.ReadAllTextAsync("config.json");
+                var temp =  JsonConvert.DeserializeObject<Config>(json);
+                await temp.LoadGameNames();
+                return temp;
             }
             var config = new Config();
             await config.Save();
@@ -249,7 +165,57 @@ namespace GizmoBot
         {
             //var json = JsonConvert.SerializeObject(this);
             //File.WriteAllText("config.json", json);
-            JsonStorage.SerializeObjectToFile(this, "config.json").Wait();
+            await JsonStorage.SerializeObjectToFile(this, "config.json");
+            await SaveGameNames();
         }
+
+        private async Task LoadGameNames(bool forceReload = false)
+        {
+            if (!forceReload && File.Exists("games.json"))
+            {
+                var json = await File.ReadAllTextAsync("games.json");
+                steamGameList = JsonConvert.DeserializeObject<SteamGameList>(json);
+            }
+            else
+            {
+                RestClient client = new RestClient("https://api.steampowered.com");
+                RestRequest request = new RestRequest("ISteamApps/GetAppList/v2", Method.GET);
+
+                client.ExecuteAsync<SteamGameList>(request, response =>
+                {
+                    steamGameList = response.Data;
+                });
+
+                await SaveGameNames();
+            }
+
+            steamGameList.LatestAppId = steamGameList.applist.apps.OrderByDescending(x => x.AppId).FirstOrDefault().AppId;
+        }
+
+        private async Task SaveGameNames()
+        {
+            await JsonStorage.SerializeObjectToFile(steamGameList, "games.json");
+        }
+    }
+
+    public class App
+    {
+        [JsonProperty("appid")]
+        public uint AppId { get; set; }
+        [JsonProperty("name")]
+        public string Name { get; set; }
+    }
+
+    public class Applist
+    {
+        public List<App> apps { get; set; }
+    }
+
+    public class SteamGameList
+    {
+        public Applist applist { get; set; }
+
+        [JsonIgnore]
+        public uint LatestAppId { get; set; }
     }
 }
