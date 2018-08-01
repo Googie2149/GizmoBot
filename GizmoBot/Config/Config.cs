@@ -165,10 +165,12 @@ namespace GizmoBot
                 RestClient client = new RestClient("https://api.steampowered.com");
                 RestRequest request = new RestRequest("ISteamApps/GetAppList/v2", Method.GET);
 
-                client.ExecuteAsync<SteamGameList>(request, response =>
-                {
-                    steamGameList = response.Data;
-                });
+                //client.ExecuteAsync<SteamGameList>(request, response =>
+                //{
+                //    steamGameList = response.Data;
+                //});
+
+                steamGameList = client.Execute<SteamGameList>(request).Data;
 
                 await SaveGameNames();
             }
