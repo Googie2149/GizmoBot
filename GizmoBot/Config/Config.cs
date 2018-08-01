@@ -170,7 +170,10 @@ namespace GizmoBot
                 //    steamGameList = response.Data;
                 //});
 
-                steamGameList = client.Execute<SteamGameList>(request).Data;
+                await Task.Run(() =>
+                {
+                    steamGameList = client.Execute<SteamGameList>(request).Data;
+                });
 
                 await SaveGameNames();
             }
