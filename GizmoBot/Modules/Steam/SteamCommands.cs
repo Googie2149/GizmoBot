@@ -33,74 +33,140 @@ namespace GizmoBot.Modules.Steam
         public async Task AddApps(params uint[] appIds)
         {
             var msg = await ReplyAsync("Loading...");
-            
-            var added = await steam.AddSteamGames(appIds, Context.Channel.Id);
 
-            if (added.Count() == 0)
+            bool newApps = false;
+            List<uint> errors = new List<uint>();
+
+            StringBuilder output = new StringBuilder("Added the following:\n");
+
+            foreach (var a in appIds)
             {
-                await msg.ModifyAsync(x => x.Content = "Those games are already being watched.");
+                // Check if we can get a name first
+                string name = await config.GetGameName(a);
+
+                if (name == null)
+                {
+                    // No name, doesn't exist, log the id then skip it
+                    errors.Add(a);
+                    continue;
+                }
+
+                if (config.SteamSettings.ContainsKey(a))
+                {
+                    if (config.SteamSettings[a].Channels.Contains(Context.Channel.Id))
+                        // We're already watching that game here, skip it
+                        continue;
+                }
+                else
+                    // Make an entry for the game we're about to add
+                    config.SteamSettings[a] = new SteamAppDetails();
+
+                // If we've made it this far, we're adding it
+                newApps = true;
+
+                config.SteamSettings[a].Channels.Add(Context.Channel.Id);
+                output.AppendLine($"`{a.ToString("000000")}` {await config.GetGameName(a)}");
+            }
+
+            if (newApps == false)
+            {
+                await msg.ModifyAsync(x => x.Content = "Those games are already being watched here, or do not exist.");
                 return;
             }
-
-            StringBuilder output = new StringBuilder();
-            string buffer = new string('0', added.OrderByDescending(x => x.AppId.ToString().Length).FirstOrDefault().AppId.ToString().Length);
-            var errors = added.Where(x => x.GameName == null).Select(x => x.AppId).ToList();
-
-            output.AppendLine("Added the following:");
-            output.AppendLine(added.Where(x => !errors.Contains(x.AppId)).Select(y => $"`[{y.AppId.ToString(buffer)}]` {y.GameName}").Join("\n"));
-
-
+            
             if (errors.Count() > 0)
             {
-                errors.ForEach(x => config.RemoveGame(x, Context.Channel.Id));
+                output.AppendLine("\nAnd I couldn't find names for the following App Ids:");
 
-                output.AppendLine("The following could not be added at this time:");
-                output.AppendLine(errors.Select(x => $"`[{x.ToString(buffer)}]`").Join(" "));
-                output.Append("Check that the App Ids are correct and try again later.");
+                output.Append(errors.Select(x => $"`{x}`").Join(" "));
             }
-            
-            if (errors.Count() != added.Count())
-                await config.Save();
+
+            var emptyVersions = config.SteamSettings.Where(x => x.Value.GameVersion == 0).Select(x => x.Key).ToList();
+
+            var newVersions = await steam.GetVersions(emptyVersions);
+
+            foreach (var kv in newVersions)
+            {
+                config.SteamSettings[kv.Key].GameVersion = kv.Value;
+            }
+
+            await config.Save();
 
             await msg.ModifyAsync(x => x.Content = output.ToString());
         }
 
-        [Command("remove", RunMode = RunMode.Async)]
-        public async Task RemoveApps(params uint[] appIds)
-        {
-            var msg = await ReplyAsync("Loading...");
+        //[Command("add", RunMode = RunMode.Async)]
+        //public async Task AddApps(params uint[] appIds)
+        //{
+        //    var msg = await ReplyAsync("Loading...");
 
-            var removed = await steam.RemoveSteamGames(appIds, Context.Channel.Id);
-            
-            if (removed.Count() == 0)
-            {
-                await msg.ModifyAsync(x => x.Content = "None of those games were not being watched in this channel.");
-                return;
-            }
+        //    var added = await steam.AddSteamGames(appIds, Context.Channel.Id);
 
-            string buffer = new string('0', removed.OrderByDescending(x => x.AppId.ToString().Length).FirstOrDefault().AppId.ToString().Length);
-            await msg.ModifyAsync(x => x.Content = $"Removed the following:\n{(removed.Select(y => $"`[{y.AppId.ToString(buffer)}]` {y.GameName}").Join("\n"))}");
-        }
+        //    if (added.Count() == 0)
+        //    {
+        //        await msg.ModifyAsync(x => x.Content = "Those games are already being watched.");
+        //        return;
+        //    }
 
-        [Command("list", RunMode = RunMode.Async)]
-        public async Task ListApps()
-        {
-            var msg = await ReplyAsync("Loading...");
+        //    StringBuilder output = new StringBuilder();
+        //    string buffer = new string('0', added.OrderByDescending(x => x.AppId.ToString().Length).FirstOrDefault().AppId.ToString().Length);
+        //    var errors = added.Where(x => x.GameName == null).Select(x => x.AppId).ToList();
 
-            var list = await steam.ListSteamGames(Context.Channel.Id);
+        //    output.AppendLine("Added the following:");
+        //    output.AppendLine(added.Where(x => !errors.Contains(x.AppId)).Select(y => $"`[{y.AppId.ToString(buffer)}]` {y.GameName}").Join("\n"));
 
-            if (list.Count() == 0)
-                await msg.ModifyAsync(x => x.Content = "This channel isn't watching any games at this time.");
 
-            string buffer = new string('0', list.OrderByDescending(x => x.AppId.ToString().Length).FirstOrDefault().AppId.ToString().Length);
+        //    if (errors.Count() > 0)
+        //    {
+        //        errors.ForEach(x => config.RemoveGame(x, Context.Channel.Id));
 
-            await msg.ModifyAsync(x => x.Content = $"This channel is watching the following:\n{(list.Select(y => $"`[{y.AppId.ToString(buffer)}]` {y.GameName}").Join("\n"))}");
-        }
+        //        output.AppendLine("The following could not be added at this time:");
+        //        output.AppendLine(errors.Select(x => $"`[{x.ToString(buffer)}]`").Join(" "));
+        //        output.Append("Check that the App Ids are correct and try again later.");
+        //    }
 
-        [Command("info", RunMode = RunMode.Async)]
-        public async Task GetInfo(uint appId)
-        {
-            var msg = await ReplyAsync("Loading...");
-        }
+        //    if (errors.Count() != added.Count())
+        //        await config.Save();
+
+        //    await msg.ModifyAsync(x => x.Content = output.ToString());
+        //}
+
+        //[Command("remove", RunMode = RunMode.Async)]
+        //public async Task RemoveApps(params uint[] appIds)
+        //{
+        //    var msg = await ReplyAsync("Loading...");
+
+        //    var removed = await steam.RemoveSteamGames(appIds, Context.Channel.Id);
+
+        //    if (removed.Count() == 0)
+        //    {
+        //        await msg.ModifyAsync(x => x.Content = "None of those games were not being watched in this channel.");
+        //        return;
+        //    }
+
+        //    string buffer = new string('0', removed.OrderByDescending(x => x.AppId.ToString().Length).FirstOrDefault().AppId.ToString().Length);
+        //    await msg.ModifyAsync(x => x.Content = $"Removed the following:\n{(removed.Select(y => $"`[{y.AppId.ToString(buffer)}]` {y.GameName}").Join("\n"))}");
+        //}
+
+        //[Command("list", RunMode = RunMode.Async)]
+        //public async Task ListApps()
+        //{
+        //    var msg = await ReplyAsync("Loading...");
+
+        //    var list = await steam.ListSteamGames(Context.Channel.Id);
+
+        //    if (list.Count() == 0)
+        //        await msg.ModifyAsync(x => x.Content = "This channel isn't watching any games at this time.");
+
+        //    string buffer = new string('0', list.OrderByDescending(x => x.AppId.ToString().Length).FirstOrDefault().AppId.ToString().Length);
+
+        //    await msg.ModifyAsync(x => x.Content = $"This channel is watching the following:\n{(list.Select(y => $"`[{y.AppId.ToString(buffer)}]` {y.GameName}").Join("\n"))}");
+        //}
+
+        //[Command("info", RunMode = RunMode.Async)]
+        //public async Task GetInfo(uint appId)
+        //{
+        //    var msg = await ReplyAsync("Loading...");
+        //}
     }
 }

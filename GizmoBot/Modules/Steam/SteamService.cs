@@ -167,17 +167,21 @@ namespace GizmoBot.Modules.Steam
             //var moreChanges = await steamApps.PICSGetProductInfo(440, package: null);
 
             //Console.WriteLine();
-
-            bool update = false;
-
+            
             while (true)
             {
                 await Task.Delay(1000 * 60 * 2); // wait 2 minutes
 
                 try
                 {
-                    var changes = await steamApps.PICSGetChangesSince(config.ChangeNumber);
+                    // Make a copy of the list so we don't get interrupted
+                    var tempSettings = new Dictionary<uint, SteamAppDetails>(config.SteamSettings);
 
+                    // Fetch the most recent changelists
+                    var changes = await steamApps.PICSGetChangesSince(config.ChangeNumber);
+                    
+                    // If we got no results, it means our last change number was too old
+                    // Set the returned most recent number and try again later
                     if (config.ChangeNumber == 0 || changes.AppChanges.Count() == 0)
                     {
                         Console.WriteLine($"Empty changelist! {config.ChangeNumber}");
@@ -185,30 +189,48 @@ namespace GizmoBot.Modules.Steam
                         continue;
                     }
 
+                    // No new changes
                     if (config.ChangeNumber == changes.CurrentChangeNumber)
                     {
                         Console.WriteLine("No new changes");
                         continue;
                     }
 
+                    // We got a new changenumber, save it
                     config.ChangeNumber = changes.CurrentChangeNumber;
 
+                    // If this passes, it means there were no actual changes despite the number incrementing
                     if (changes.AppChanges.Count() == 0)
                     {
                         Console.WriteLine("No new app changes");
                         continue;
                     }
 
-                    update = true;
+                    // Check if any of the changed apps are being watched, and store their Ids in a list
+                    var watchedApps = tempSettings.Where(x => changes.AppChanges.Keys.Contains(x.Key)).Select(x => x.Key).ToList();
 
-                    // This should send a list of AppIds that are followed by at least one channel.
-                    await Broadcast(changes.AppChanges.Keys.Where(x => config.SteamSettings.Keys.Contains(x)).ToList());
-
-                    if (update)
+                    Dictionary<uint, uint> updatedApps = await GetVersions(watchedApps);
+                    
+                    // Send out a broadcast to all channels watching those apps
+                    foreach (var kv in updatedApps)
                     {
-                        await config.Save();
-                        update = false;
+                        // We've already caught this update once before, ignore it
+                        if (kv.Value <= tempSettings[kv.Key].GameVersion)
+                            continue;
+
+                        string name = await config.GetGameName(kv.Key);
+                        foreach (var ch in tempSettings[kv.Key].Channels)
+                        {
+                            // Implement error handling/deleted channel detection here
+                            await (client.GetChannel(ch) as ITextChannel).SendMessageAsync($"New update detected for {name}!\n`{tempSettings[kv.Key].GameVersion}` -> `{kv.Value}`");
+                        }
+
+                        // Lastly, update the cached version number
+                        config.SteamSettings[kv.Key].GameVersion = kv.Value;
                     }
+                    
+                    // We made it this far, at the very least the change number updated
+                    await config.Save();
                 }
                 catch (Exception ex)
                 {
@@ -262,125 +284,76 @@ namespace GizmoBot.Modules.Steam
 
             Console.WriteLine("Done!");
         }
-
-        private async Task Broadcast(List<uint> changedIds)
+        
+        public async Task<Dictionary<uint, uint>> GetVersions(List<uint> appIds)
         {
-            if (changedIds.Count() == 0)
-                return;
+            int failureCount = 0;
+            Dictionary<uint, uint> temp = new Dictionary<uint, uint>();
 
-            var changedApps = config.SteamSettings.Where(x => changedIds.Contains(x.Key)).ToList();
-
-            if (changedApps.Count() == 0)
-                return;
-
-            Dictionary<ulong, StringBuilder> messages = new Dictionary<ulong, StringBuilder>();
-
-            string buffer = new string('0', changedApps.Select(x => x.Key).OrderByDescending(x => x.ToString().Length).FirstOrDefault().ToString().Length);
-
-            foreach (var app in changedApps)
+            while (failureCount < 3)
             {
-                foreach (var channel in app.Value)
+                // If we've failed at least once, pause for a second
+                if (failureCount > 0)
+                    await Task.Delay(1000);
+
+                try
                 {
-                    if (!messages.ContainsKey(channel))
+                    // Request information for watched apps that haven't already been checked in this pass
+                    var results = await steamApps.PICSGetProductInfo(appIds, packages: new uint[0], onlyPublic: false);
+
+                    var apps = results.Results.FirstOrDefault()?.Apps;
+
+                    foreach (var a in apps)
                     {
-                        messages[channel] = new StringBuilder();
-                        messages[channel].AppendLine($"Detected the following updated chagelists:");
+                        // Remove it from the list of apps to request, since we successfully got its info
+                        appIds.Remove(a.Key);
+
+                        // Check for the Build ID
+                        // Note: I have no idea if all games follow this structure, or if it's public for all games
+                        string tempVersion = a.Value?.KeyValues?
+                        .Children?.FirstOrDefault(x => x.Name == "depots")?
+                        .Children?.FirstOrDefault(x => x.Name == "branches")?
+                        .Children?.FirstOrDefault(x => x.Name == "public")?
+                        .Children?.FirstOrDefault(x => x.Name == "buildid")?.Value;
+
+                        // Make sure what we got is actually a number
+                        if (uint.TryParse(tempVersion, out uint version))
+                        {
+                            temp.Add(a.Key, version);
+                        }
                     }
 
-                    messages[channel].AppendLine($"`[{app.Key.ToString(buffer)}]` {await config.GetGameName(app.Key, steamApps)}");
+                    if (appIds.Count() == 0)
+                    {
+                        // We got everything we wanted
+                        break;
+                    }
+                    else
+                    {
+                        // We missed something, try again a couple of times
+                        failureCount++;
+                    }
+                }
+                catch
+                {
+                    // We timed out before getting anything.
+                    failureCount++;
+                    continue;
                 }
             }
 
-            foreach (var channel in messages)
-            {
-                channel.Value.AppendLine("Note: These are just changelists and *not* guaranteed to be an actual update.");
-
-                var socketChannel = client.GetChannel(channel.Key) as SocketTextChannel;
-
-                // Todo: if a channel is missing for too long, remove it from the config
-                if (socketChannel == null)
-                    continue;
-
-                await socketChannel.SendMessageAsync(channel.Value.ToString());
-            }
-        }
-
-        public async Task<SteamApps.PICSProductInfoCallback.PICSProductInfo> GetInfo(uint appId)
-        {
-            var result = await steamApps.PICSGetProductInfo(appId, package: null, onlyPublic: false);
-            
-            return result.Results.First().Apps.Values.FirstOrDefault();
-        }
-
-        public async Task<IEnumerable<SteamApp>> AddSteamGames(IEnumerable<uint> appIds, ulong channel)
-        {
-            List<SteamApp> output = new List<SteamApp>();
-            List<uint> added = new List<uint>();
-
-            foreach (var a in appIds)
-            {
-                if (config.AddGame(a, channel))
-                    added.Add(a);
-            }
-            
-            foreach (var app in added)
-            {
-                output.Add(new SteamApp()
-                {
-                    AppId = app,
-                    GameName = await config.GetGameName(app, steamApps)
-                });
-            }
-            
-            return output;
-        }
-
-        public async Task<IEnumerable<SteamApp>> RemoveSteamGames(IEnumerable<uint> appIds, ulong channel)
-        {
-            List<SteamApp> output = new List<SteamApp>();
-            List<uint> removed = new List<uint>();
-
-            foreach (var r in appIds)
-            {
-                if (config.RemoveGame(r, channel))
-                    removed.Add(r);
-            }
-            
-            foreach (var app in removed)
-            {
-                output.Add(new SteamApp()
-                {
-                    AppId = app,
-                    GameName = (await config.GetGameName(app, steamApps)) ?? "[Unknown]"
-                });
-            }
-
-            return output;
-        }
-
-        public async Task<IEnumerable<SteamApp>> ListSteamGames(ulong channel)
-        {
-            List<SteamApp> output = new List<SteamApp>();
-
-            var temp = config.SteamSettings.Where(x => x.Value.Contains(channel));
-
-            foreach (var app in temp)
-            {
-                output.Add(new SteamApp()
-                {
-                    AppId = app.Key,
-                    GameName = await config.GetGameName(app.Key, steamApps) ?? "[Unknown]"
-                });
-            }
-
-            return output;
+            return temp;
         }
     }
 
-    public class SteamApp
+    public class SteamAppDetails
     {
-        public uint AppId;
-        public string GameName;
+        public SteamAppDetails()
+        {
+            Channels = new List<ulong>();
+        }
+
         public uint GameVersion;
+        public List<ulong> Channels;
     }
 }

@@ -6,16 +6,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Modules\Steam\SteamCommands.cs" />
     <Compile Remove="Modules\Steam\SteamOld.cs" />
-    <Compile Remove="Modules\Steam\SteamService.cs" />
     <Compile Remove="Modules\Steam\SteamServiceOld.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Modules\Steam\SteamCommands.cs" />
+    <None Remove="games.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="Modules\Steam\SteamOld.cs" />
-    <None Include="Modules\Steam\SteamService.cs" />
     <None Include="Modules\Steam\SteamServiceOld.cs" />
   </ItemGroup>
 

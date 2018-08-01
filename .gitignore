@@ -8,6 +8,7 @@
 *.sln.docstates
 config.json
 settings.json
+games.json
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
