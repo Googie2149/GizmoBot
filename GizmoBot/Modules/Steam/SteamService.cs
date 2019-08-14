@@ -184,7 +184,7 @@ namespace GizmoBot.Modules.Steam
                     // Set the returned most recent number and try again later
                     if (config.ChangeNumber == 0 || changes.AppChanges.Count() == 0)
                     {
-                        Console.WriteLine($"Empty changelist! {config.ChangeNumber}");
+                        Console.WriteLine($"Empty changelist! {config.ChangeNumber} -> {changes.CurrentChangeNumber}");
                         config.ChangeNumber = changes.CurrentChangeNumber;
                         continue;
                     }
@@ -222,7 +222,7 @@ namespace GizmoBot.Modules.Steam
                         foreach (var ch in tempSettings[kv.Key].Channels)
                         {
                             // Implement error handling/deleted channel detection here
-                            await (client.GetChannel(ch) as ITextChannel).SendMessageAsync($"New update detected for {name}!\n`{tempSettings[kv.Key].GameVersion}` -> `{kv.Value}`");
+                            await (client.GetChannel(ch) as ITextChannel).SendMessageAsync($"New update detected for {name}!\n`Build {tempSettings[kv.Key].GameVersion}` -> `Build {kv.Value}`");
                         }
 
                         // Lastly, update the cached version number
